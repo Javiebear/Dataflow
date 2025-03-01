@@ -48,7 +48,7 @@ class ModelMiDas:
 class getBoxAndDepth(beam.DoFn):
 
     # model paths
-    def __init__(self, modelYoloPath, modelMiDasPath):
+    def __init__(self, modelYoloPath):
         self.modelYoloPath = modelYoloPath
 
     def setup(self):
