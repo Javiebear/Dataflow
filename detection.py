@@ -13,18 +13,18 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
 def singleton(cls):
-  instances = {}
-  def getinstance(*args, **kwargs):
-    if cls not in instances:
-      instances[cls] = cls(*args, **kwargs)
-    return instances[cls]
-  return getinstance
+    instances = {}
+    def getinstance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    return getinstance
 
 # setting up the yolo model for bounding boxes
 @singleton
 class ModelYOLO:
-    def __init__(self):
-        self.model = YOLO("yolov8n.pt")  # Load YOLOv8 model
+    def __init__(self, model_path):
+        self.model = YOLO(model_path) 
 
     def predict(self, image):
         return self.model(image)
@@ -32,11 +32,11 @@ class ModelYOLO:
 # setting up the ModelMiDas for depth detetion
 @singleton
 class ModelMiDas:
-
     def __init__(self):
-        self.model = torch.hub.load("intel-isl/MiDaS", "MiDaS_small")
+        self.model = torch.hub.load("isl-org/MiDaS", "MiDaS_small")
+        self.model.to(torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         self.model.eval()
-        self.transform = torch.hub.load("intel-isl/MiDaS", "transforms").small_transform
+        self.transform = torch.hub.load("isl-org/MiDaS", "transforms").small_transform
 
     def predict(self, image):
         image = self.transform(image).to(next(self.model.parameters()).device)
@@ -47,6 +47,15 @@ class ModelMiDas:
 # running the code to receive a message of an image from the pub/sub, getting 
 class getBoxAndDepth(beam.DoFn):
 
+    # model paths
+    def __init__(self, model_yolo_path, model_midas_path):
+        self.model_yolo_path = model_yolo_path
+        self.model_midas_path = model_midas_path
+
+    def setup(self):
+        self.model_yolo = ModelYOLO(self.model_yolo_path)
+        self.model_midas = ModelMiDas(self.model_midas_path)
+
     def process(self, element):
         # Loading models from bucket
         model_yolo = ModelYOLO()
@@ -55,7 +64,7 @@ class getBoxAndDepth(beam.DoFn):
         # Converting the read image into an image
         message = json.loads(element.decode("utf-8"))  
         imageBytes = message["image"]
-        imageID = message["id"]
+        image = message["id"]
 
         # Decoding image
         nparr = np.frombuffer(bytes.fromhex(imageBytes), np.uint8)
@@ -82,29 +91,26 @@ class getBoxAndDepth(beam.DoFn):
                     })
 
         # Format output message
-        output_message = json.dumps({"id": imageID, "pedestrians": pedestrians})
+        output_message = json.dumps({"id": image, "pedestrians": pedestrians})
         yield output_message
 
 
 
 def run(argv=None):
-  parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument('--input', dest='input', required=True,
-                      help='Input file to process.')
-  parser.add_argument('--output', dest='output', required=True,
-                      help='Output file to write results to.')
-  parser.add_argument('--modelYolo', dest='model', required=True,
-                      help='Checkpoint file of the model.')
-  parser.add_argument('--modelMiDas', dest='model', required=True,
-                      help='Checkpoint file of the model.')
-  known_args, pipeline_args = parser.parse_known_args(argv)
-  pipeline_options = PipelineOptions(pipeline_args)
-  pipeline_options.view_as(SetupOptions).save_main_session = True;
-  with beam.Pipeline(options=pipeline_options) as p:
-        (    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', dest='input', required=True, help='Input file to process.')
+    parser.add_argument('--output', dest='output', required=True, help='Output file to write results to.')
+    parser.add_argument('--modelYolo', required=True, help='YOLO model path')
+    parser.add_argument('--modelMiDas', required=True, help='MiDaS model path')
+
+    known_args, pipeline_args = parser.parse_known_args(argv)
+    pipeline_options = PipelineOptions(pipeline_args)
+    pipeline_options.view_as(SetupOptions).save_main_session = True;
+    with beam.Pipeline(options=pipeline_options) as p:
+        (
             p
             | "ReadFromPubSub" >> beam.io.ReadFromPubSub(subscription=known_args.input)
-            | "DetectPedestrians" >> beam.ParDo(getBoxAndDepth(), known_args.model)
+            | "DetectPedestrians" >> beam.ParDo(getBoxAndDepth(), known_args.modelYolo, known_args.modelMiDas)
             | "WriteToPubSub" >> beam.io.WriteToPubSub(topic=known_args.output)
         )
 

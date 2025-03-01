@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Installing Python libraries
-RUN pip install ultralytics \ 
+RUN pip install ultralytics \
     opencv-python-headless \
     numpy \
     torch \
@@ -28,10 +28,7 @@ RUN pip install ultralytics \
 RUN if [ ! -f "/app/yolov8n.pt" ]; then \
         wget -O /app/yolov8n.pt "https://github.com/ultralytics/assets/releases/download/v8/yolov8n.pt"; \
     fi
-RUN mkdir -p /app/midas && \
-    if [ ! -f "/app/midas/dpt_swin2_tiny_256.pt" ]; then \
-        wget -O /app/midas/dpt_swin2_tiny_256.pt "https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_swin2_tiny_256.pt"; \
-    fi
+RUN python -c "import torch; torch.hub.load('isl-org/MiDaS', 'MiDaS_small').eval()"
 
 # # Copy dataset and scripts
 # COPY Dataset_Occluded_Pedestrian /app/Dataset_Occluded_Pedestrian
@@ -39,4 +36,4 @@ RUN mkdir -p /app/midas && \
 # COPY detection.py /app/detection.py
 
 # Run the detection script in the dataflow worker
-ENTRYPOINT ["python", "detection.py"]
+ENTRYPOINT ["python", "detection.py", "--modelYolo", "/app/yolov8n.pt"]
