@@ -48,31 +48,26 @@ class ModelMiDas:
 class getBoxAndDepth(beam.DoFn):
 
     # model paths
-    def __init__(self, model_yolo_path, model_midas_path):
-        self.model_yolo_path = model_yolo_path
-        self.model_midas_path = model_midas_path
+    def __init__(self, modelYoloPath, modelMiDasPath):
+        self.modelYoloPath = modelYoloPath
 
     def setup(self):
-        self.model_yolo = ModelYOLO(self.model_yolo_path)
-        self.model_midas = ModelMiDas(self.model_midas_path)
+        self.modelYolo = ModelYOLO(self.modelYoloPath)
+        self.modelMiDas = ModelMiDas()
 
     def process(self, element):
-        # Loading models from bucket
-        model_yolo = ModelYOLO()
-        model_midas = ModelMiDas()
-
         # Converting the read image into an image
         message = json.loads(element.decode("utf-8"))  
         imageBytes = message["image"]
-        image = message["id"]
+        imageID = message["id"]
 
         # Decoding image
         nparr = np.frombuffer(bytes.fromhex(imageBytes), np.uint8)
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        # Loading the image into the model
-        results = model_yolo.predict(image)
-        depth_map = model_midas.predict(image)
+        # Predict the images boudning box of pedestrian and the depth 
+        results = self.modelYolo.predict(image)  # Fixed
+        depth_map = self.modelMiDas.predict(image)  # Fixed
 
         pedestrians = []
         # This for loop loops through each detected person in the image
@@ -91,7 +86,7 @@ class getBoxAndDepth(beam.DoFn):
                     })
 
         # Format output message
-        output_message = json.dumps({"id": image, "pedestrians": pedestrians})
+        output_message = json.dumps({"id": imageID, "pedestrians": pedestrians})
         yield output_message
 
 
@@ -110,7 +105,7 @@ def run(argv=None):
         (
             p
             | "ReadFromPubSub" >> beam.io.ReadFromPubSub(subscription=known_args.input)
-            | "DetectPedestrians" >> beam.ParDo(getBoxAndDepth(), known_args.modelYolo, known_args.modelMiDas)
+            | "DetectPedestrians" >> beam.ParDo(getBoxAndDepth(), known_args.modelYolo)
             | "WriteToPubSub" >> beam.io.WriteToPubSub(topic=known_args.output)
         )
 
