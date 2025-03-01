@@ -24,9 +24,9 @@ COPY yolov8n.pt /app/yolov8n.pt
 RUN python -c "import torch; torch.hub.load('isl-org/MiDaS', 'MiDaS_small').eval()"
 
 # # Copy dataset and scripts
-# COPY Dataset_Occluded_Pedestrian /app/Dataset_Occluded_Pedestrian
-# COPY Labels.csv /app/Labels.csv
-# COPY detection.py /app/detection.py
+COPY Dataset_Occluded_Pedestrian /app/Dataset_Occluded_Pedestrian
+COPY Labels.csv /app/Labels.csv
+COPY detection.py /app/detection.py
 
 # Run the detection script in the dataflow worker
 ENTRYPOINT ["python", "detection.py", "--modelYolo", "/app/yolov8n.pt"]
