@@ -16,7 +16,9 @@ subscription_path = subscriber.subscription_path(project_id, subscription_id)
 import json
 def callback(message: pubsub_v1.subscriber.message.Message) -> None:
     #print(f"Received {json.loads(message)}.")
-    print(f"Received {json.loads(message.data)}.")
+    msgData = json.loads(message.data.decode("utf-8"))
+    jsonData = json.loads(msgData)
+    print(f"Received {jsonData}.")
     message.ack()
 
 streaming_pull_future = subscriber.subscribe(subscription_path, callback=callback)
