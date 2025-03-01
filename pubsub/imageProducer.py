@@ -23,7 +23,8 @@ topic_path = publisher.topic_path(project_id, topic_name)
 
 df=pd.read_csv('Labels.csv')
 
-for row in df:
+# going through every image
+for _, row in df.iterrows():
     image = row["Occluded_Image_view"]
     # opening the image and publishing it
     try:
