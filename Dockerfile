@@ -1,7 +1,7 @@
 # docker build -t detection . 
 # docker run --rm detection
-# Using python3.13 image as the base image
-FROM python:3.13
+# Using python3.10 image as the base image
+FROM python:3.10
 
 # Setting the working directory inside the container
 WORKDIR /app
@@ -15,14 +15,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Installing Python libraries
-RUN pip install ultralytics \
-    opencv-python-headless \
-    numpy \
-    torch \
-    torchvision \
-    google-cloud-pubsub \
-    apache-beam[gcp] \
-    timm
+RUN pip install ultralytics opencv-python-headless numpy 
+RUN pip install torch torchvision timm
+RUN pip install google-cloud-pubsub apache-beam[gcp] 
 
 # Downloading models if they dont exist
 RUN if [ ! -f "/app/yolov8n.pt" ]; then \
