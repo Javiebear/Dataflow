@@ -19,10 +19,8 @@ RUN pip install ultralytics opencv-python-headless numpy
 RUN pip install torch torchvision timm
 RUN pip install google-cloud-pubsub apache-beam[gcp] 
 
-# Downloading models if they dont exist
-RUN if [ ! -f "/app/yolov8n.pt" ]; then \
-        wget -O /app/yolov8n.pt "https://github.com/ultralytics/assets/releases/download/v8/yolov8n.pt"; \
-    fi
+# Downloading models
+RUN wget -O /app/yolov8n.pt "https://ultralytics.com/assets/yolov8n.pt"
 RUN python -c "import torch; torch.hub.load('isl-org/MiDaS', 'MiDaS_small').eval()"
 
 # # Copy dataset and scripts
