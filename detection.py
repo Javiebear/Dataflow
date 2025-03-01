@@ -105,7 +105,7 @@ def run(argv=None):
         (
             p
             | "ReadFromPubSub" >> beam.io.ReadFromPubSub(subscription=known_args.input)
-            | "DetectPedestrians" >> beam.ParDo(getBoxAndDepth(), known_args.modelYolo)
+            | "DetectPedestrians" >> beam.ParDo(getBoxAndDepth(known_args.modelYolo))
             | "WriteToPubSub" >> beam.io.WriteToPubSub(topic=known_args.output)
         )
 
